@@ -1,0 +1,9 @@
+[submodule "sublog/layouts/themes/ananke"]
+	path = sublog/layouts/themes/ananke
+	url = https://github.com/gohugo-ananke/ananke
+[submodule "sublog/themes/ananke"]
+	path = sublog/themes/ananke
+	url = https://github.com/gohugo-ananke/ananke
+[submodule "sublog/themes/hugo-PaperMod"]
+	path = sublog/themes/hugo-PaperMod
+	url = https://github.com/adityatelange/hugo-PaperMod.git
