@@ -1,4 +1,4 @@
-baseURL = 'https://example.org/'
+baseURL = 'https://suwuako.com'
 languageCode = 'en-us'
 title = 'sw blog'
 theme = 'hugo-PaperMod'

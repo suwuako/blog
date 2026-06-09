@@ -1,0 +1,8 @@
+services:
+  hugo:
+    build: .
+    ports:
+      - "1313:80"
+    volumes: 
+      - .:/blog
+    working_dir: /blog/sublog

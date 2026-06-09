@@ -1,8 +1,8 @@
 FROM hugomods/hugo:latest AS builder
-COPY . /sublog
-WORKDIR /sublog
+COPY . /blog
+WORKDIR /blog/sublog
 RUN hugo --minify
 
 # serve
 FROM nginx:alpine
-COPY --from=builder /sublog/public /usr/share/nginx/html
+COPY --from=builder /blog/sublog/public /usr/share/nginx/html
