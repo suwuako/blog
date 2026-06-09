@@ -124,6 +124,8 @@ Lets create a file in `src` called `vectors.rs`:
 ├── tags
 ```
 
+and create our struct `Vec3`...
+
 ```
 pub struct Vec3 {
     x: f64,
@@ -150,19 +152,31 @@ use vectors::Vec3;
 fn main() {
     let myvec = Vec3::new(3.0, 3.0, 3.0);
     println!("mag: {}", myvec.mag());
-
-    /*
-   let mut img = Image::new(256, 256);
-
-    for (x, y) in img.coordinates() {
-        img.set_pixel(x, y, Pixel::new(x as u8, y as u8, 200));
-    }
-    let _ = img.save("img.bmp");
-    */
 }
 ```
 
-### overloading add
+Great! Now that we've got vectors running, lets implment all the fun stuff :D
+
+### implmenting add, subtract, scalar multiplication and division
+
+Lets first implement add:
+
+```
+impl std::ops::Add for Vec3 {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
+    }
+
+}
+```
+
+...and test it out!
 
 ```
 mod vectors;
@@ -177,18 +191,217 @@ fn main() {
 
     let v3 = v1 + v2;
     println!("v3: {}", v3);
-
-
-    /*
-   let mut img = Image::new(256, 256);
-
-    for (x, y) in img.coordinates() {
-        img.set_pixel(x, y, Pixel::new(x as u8, y as u8, 200));
-    }
-    let _ = img.save("img.bmp");
-    */
 }
 ```
+
+For those more astute, you may have noticed that the add function actually takes ownership
+of both self and other - that means that this snippet of code here would actually fail!
+
+```
+❯ cargo run
+   Compiling rustracer v0.1.0 (/home/suwa/git/rustracer)
+error[E0382]: borrow of moved value: `v1`
+  --> src/main.rs:13:32
+   |
+ 7 |     let v1 = Vec3::new(3.0, 3.0, 3.0);
+   |         -- move occurs because `v1` has type `Vec3`, which does not implement the `Copy` trait
+...
+11 |     let v3 = v1 + v2;
+   |              ------- `v1` moved due to usage in operator
+12 |     println!("v3: {}", v3);
+13 |     println!("v1: {}, v2: {}", v1, v2);
+   |                                ^^ value borrowed here after move
+```
+
+Now, we could do this with references but that would also mean having to type annoying
+syntax like `v3 == &v1 ++ &v1`. Instead, lets just `#derive` `Copy, Clone` on `Vec3`, and
+now every time we call a function on `Vec3`, it should create a deep copy!
+
+```
+#[derive(Copy, Clone)]
+pub struct Vec3 {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
+
+```
+
+```
+❯ cargo run
+   Compiling rustracer v0.1.0 (/home/suwa/git/rustracer)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running `target/debug/rustracer`
+v1: x: 3, y: 3 z: 3, v2: x: 1, y: 2 z: 3
+v3: x: 4, y: 5 z: 6
+v1: x: 3, y: 3 z: 3, v2: x: 1, y: 2 z: 3
+```
+
+We could stop here, but we've got a few nice convenient traits to add (namely `+=`, which
+is `AddAssign`, `-=`, `*=` and `/=`). I won't go into tooo much depth since this is pretty
+self-explanitory.
+
+```
+impl std::ops::AddAssign for Vec3 {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+        self.z += rhs.z;
+    }
+}
+
+impl std::ops::SubAssign for Vec3 {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+        self.z -= rhs.z;
+    }
+}
+
+impl std::ops::MulAssign<f64> for Vec3 {
+    fn mul_assign(&mut self, rhs: f64) {
+        self.x *= rhs;
+        self.y *= rhs;
+        self.z *= rhs;
+    }
+}
+
+impl std::ops::DivAssign<f64> for Vec3 {
+    fn div_assign(&mut self, rhs: f64) {
+        self.x /= rhs;
+        self.y /= rhs;
+        self.z /= rhs;
+    }
+}
+```
+
+and to make sure it works:
+
+```
+mod vectors;
+
+//use bmp::{Image, Pixel};
+use vectors::Vec3;
+
+fn main() {
+    let mut v1 = Vec3::new(3.0, 3.0, 3.0);
+    let v2 = Vec3::new(1.0, 2.0, 3.0);
+    println!("v1: {}, v2: {}", v1, v2);
+
+    let v3 = v1 + v2;
+    v1 += v2;
+
+    println!("v3: {}", v3);
+    println!("v1 + v2: {}", v1);
+    v1 *= 2.0;
+    println!("v1 * 2: {}", v1);
+}
+```
+
+```
+ ❯ cargo run
+v1: x: 3, y: 3 z: 3, v2: x: 1, y: 2 z: 3
+v3: x: 4, y: 5 z: 6
+v1 + v2: x: 4, y: 5 z: 6
+v1 * 2: x: 8, y: 10 z: 12
+```
+
+Woohoo! But we still need to implement the unit vector, the dot and cross product.
+
+## Unit vector, dot and cross products
+
+Before we implement them, we first want to learn what these are first.    
+The unit vector is a vector of length 1! Given any random vector, we can convert it into a
+unit vector by first finding its length, and dividing each of its components by said
+length! 
+
+The dot product is a measure of "how similar" two angles are. You don't need to know why
+we do this, but the general formula for two vectors `a` and `b` is `a.x * b.x + a.y * b.y
++ a.z * b.z`. The dot product is useful for determining things like intersections between
+  a ray and an object, or the reflection of said ray (we go into this later!)
+
+The cross product is a bit of an interesting function - given any two vectors, you can
+find a third vector (in 3d space) which is right angled to both vectors. The formula is a
+bit weird but it goes like this: For vectors `a` and `b`, with a resultant vector `c`:
+
+```
+c.x = a.y * b.z - a.z * b.y
+c.y = a.z * b.x - a.x * b.z
+c.z = a.x * b.y - a.y * b.x
+```
+
+We don't really have any traits to implement that would allow overloading here, so lets
+just implement them as normal methods: `dot(), cross() and unit()`
+
+```
+impl Vec3 { 
+    pub fn new(x: f64, y: f64, z: f64) -> Self {
+        Vec3 {x, y, z}
+    }
+
+    pub fn mag(&self) -> f64 {
+        let sum: f64 = (self.x * self.x + self.y * self.y + self.z * self.z) as f64;
+        sum.sqrt()
+    }
+
+    pub fn dot(&self, b: Self) -> f64 {
+        self.x * b.x + self.y * b.y + self.z * b.z
+    }
+
+    pub fn cross(&self, b: Self) -> Self {
+        Self {
+            x: self.y * b.z - self.z * b.y,
+            y: self.z * b.x - self.x * b.z,
+            z: self.x * b.y - self.y * b.x,
+        }
+    }
+
+    pub fn unit(&self) -> Self {
+        let mag = self.mag();
+        Self {
+            x: self.x / mag,
+            y: self.y / mag,
+            z: self.z / mag,
+        }
+    }
+}
+```
+
+and once again, lets test them out:
+
+```
+fn main() {
+    let v1 = Vec3::new(3.0, 3.0, 3.0);
+    let v2 = Vec3::new(1.0, 2.0, 3.0);
+    println!("v1: {} | v2: {}", v1, v2);
+
+    let v3 = v1.cross(v2);
+    println!("v3: {}", v3);
+}
+```
+
+```
+v1: x: 3, y: 3 z: 3 | v2: x: 1, y: 2 z: 3
+v3: x: 3, y: -6 z: 3
+```
+
+Now, one cool thing about the dot product is that if two vectors are perpedicular to each
+other (right angled), then the dot product would be zero! We can test out if our cross
+product and dot product functions works by actually running `v3.dot(v1)` and checking if
+its equal to `0`!
+
+```
+    println!("dot: {} {}", v3.dot(v1), v3.dot(v2));
+
+> v1: x: 3, y: 3 z: 3 | v2: x: 1, y: 2 z: 3
+v3: x: 3, y: -6 z: 3
+dot: 0 0
+```
+
+everything seems to be in order! Lets move onto colour and rays!
+
+## Colours and Rays
+
 
 # Referneces
 1. https://raytracing.github.io/books/RayTracingInOneWeekend.html     
